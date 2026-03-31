@@ -1,29 +1,41 @@
-const mongoose = require("mongoose");
+const express = require("express");
+const router = express.Router();
+const Question = require("../models/Question");
 
-const QuestionSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+const {
+  callGemini,
+  generateQuestionsPrompt,
+} = require("../services/geminiService");
 
-  question: String,
-  answer: String,
-  topic: String,
-  difficulty: String,
+router.post("/generate", async (req, res) => {
+  try {
+    const { userId, role, experience } = req.body;
 
-  userAnswer: String,
-  aiFeedback: String,
-  score: Number,
+    const prompt = generateQuestionsPrompt(role, experience);
+    const aiResponse = await callGemini(prompt);
 
-  bookmarked: {
-    type: Boolean,
-    default: false,
-  },
+    const questions = JSON.parse(aiResponse);
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+    const savedQuestions = await Question.insertMany(
+      questions.map((q) => ({
+        ...q,
+        userId,
+      })),
+    );
+
+    res.json(savedQuestions);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-module.exports = mongoose.model("Question", QuestionSchema);
+router.get("/:userId", async (req, res) => {
+  const questions = await Question.find({
+    userId: req.params.userId,
+  });
+
+  res.json(questions);
+});
+
+module.exports = router;

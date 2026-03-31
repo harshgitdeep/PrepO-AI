@@ -1,31 +1,41 @@
-const mongoose = require("mongoose");
+const express = require("express");
+const router = express.Router();
+const Roadmap = require("../models/Roadmap");
 
-const RoadmapSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+const {
+  callGemini,
+  generateRoadmapPrompt,
+} = require("../services/geminiService");
 
-  role: String,
-  experience: String,
+router.post("/generate", async (req, res) => {
+  try {
+    const { userId, role, experience } = req.body;
 
-  roadmapText: String,
+    const prompt = generateRoadmapPrompt(role, experience);
+    const roadmapText = await callGemini(prompt);
 
-  weeks: [
-    {
-      week: Number,
-      topics: [String],
-      completed: {
-        type: Boolean,
-        default: false,
-      },
-    },
-  ],
+    const roadmap = new Roadmap({
+      userId,
+      role,
+      experience,
+      roadmapText,
+    });
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+    await roadmap.save();
+
+    res.json(roadmap);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-module.exports = mongoose.model("Roadmap", RoadmapSchema);
+router.get("/:userId", async (req, res) => {
+  const roadmap = await Roadmap.findOne({
+    userId: req.params.userId,
+  });
+
+  res.json(roadmap);
+});
+
+module.exports = router;

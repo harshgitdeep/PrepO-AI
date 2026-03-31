@@ -25,6 +25,10 @@ app.get("/test-gemini", async (req, res) => {
   res.send(response);
 });
 
+app.use("/api/roadmap", require("./routes/roadmap"));
+
+app.use("/api/questions", require("./routes/questions"));
+
 const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
